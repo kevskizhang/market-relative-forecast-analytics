@@ -1,15 +1,11 @@
 "use client";
 
-import { API_URL, Forecast, Position } from "@/lib/api";
+import { API_URL, Forecast, KalshiMarket } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 function pctToBps(value: FormDataEntryValue | null): number {
   return Math.round(Number(value) * 100);
-}
-
-function dollarsToCents(value: FormDataEntryValue | null): number {
-  return Math.round(Number(value || 0) * 100);
 }
 
 async function post(path: string, payload: unknown) {
@@ -24,15 +20,24 @@ async function post(path: string, payload: unknown) {
 
 export function MarketActions({
   marketId,
+  kalshiTicker,
   forecasts,
-  positions,
 }: {
   marketId: string;
+  kalshiTicker?: string | null;
   forecasts: Forecast[];
-  positions: Position[];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [marketPct, setMarketPct] = useState("");
+  const [yesBidPct, setYesBidPct] = useState("");
+  const [yesAskPct, setYesAskPct] = useState("");
+  const [lastTradePct, setLastTradePct] = useState("");
+
+  function bpsToPctInput(value?: number | null): string {
+    if (value === null || value === undefined) return "";
+    return (value / 100).toFixed(2);
+  }
 
   async function handle(form: HTMLFormElement, fn: (form: FormData) => Promise<void>) {
     setError(null);
@@ -70,24 +75,6 @@ export function MarketActions({
     });
   }
 
-  async function openPosition(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    await handle(formElement, async (form) => {
-      await post("/positions", {
-        market_id: marketId,
-        linked_forecast_id: form.get("linked_forecast_id"),
-        side: form.get("side"),
-        entry_price_bps: pctToBps(form.get("entry_price_pct")),
-        quantity: Number(form.get("quantity")),
-        fees_minor_units: dollarsToCents(form.get("fees")),
-        order_type: "manual",
-        reason: form.get("reason"),
-        notes: form.get("notes"),
-      });
-    });
-  }
-
   async function resolveMarket(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -99,22 +86,65 @@ export function MarketActions({
     });
   }
 
+  async function fetchKalshiPrice() {
+    if (!kalshiTicker) {
+      setError("Add a Kalshi ticker to this market before fetching live pricing.");
+      return;
+    }
+    setError(null);
+    const response = await fetch(`${API_URL}/kalshi/markets/${encodeURIComponent(kalshiTicker)}`);
+    if (!response.ok) {
+      setError(await response.text());
+      return;
+    }
+    const market = (await response.json()) as KalshiMarket;
+    setMarketPct(bpsToPctInput(market.market_probability_yes_bps));
+    setYesBidPct(bpsToPctInput(market.yes_bid_bps));
+    setYesAskPct(bpsToPctInput(market.yes_ask_bps));
+    setLastTradePct(bpsToPctInput(market.last_trade_price_bps));
+  }
+
+  async function syncKalshiSnapshot() {
+    setError(null);
+    const response = await fetch(`${API_URL}/markets/${marketId}/snapshots/kalshi`, { method: "POST" });
+    if (!response.ok) {
+      setError(await response.text());
+      return;
+    }
+    router.refresh();
+  }
+
+  async function syncKalshiMetadata() {
+    setError(null);
+    const response = await fetch(`${API_URL}/markets/${marketId}/sync-kalshi`, { method: "POST" });
+    if (!response.ok) {
+      setError(await response.text());
+      return;
+    }
+    router.refresh();
+  }
+
   return (
     <div className="stack">
       {error && <div className="panel error">{error}</div>}
 
       <section className="panel">
         <h2>Add Snapshot and Forecast</h2>
+        <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+          <button type="button" className="secondary" onClick={syncKalshiMetadata}>Sync Kalshi Metadata</button>
+          <button type="button" className="secondary" onClick={fetchKalshiPrice}>Prefill Live Kalshi Price</button>
+          <button type="button" className="secondary" onClick={syncKalshiSnapshot}>Save Kalshi Snapshot Only</button>
+        </div>
         <form className="form" onSubmit={addSnapshotForecast}>
           <div className="form-grid">
-            <label>Market YES %<input name="market_probability_yes_pct" type="number" step="0.01" min="0" max="100" required /></label>
+            <label>Market YES %<input name="market_probability_yes_pct" type="number" step="0.01" min="0" max="100" required value={marketPct} onChange={(event) => setMarketPct(event.target.value)} /></label>
             <label>Your YES %<input name="forecast_probability_yes_pct" type="number" step="0.01" min="0" max="100" required /></label>
             <label>Confidence<select name="confidence" defaultValue="3"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
           </div>
           <div className="form-grid">
-            <label>YES Bid %<input name="yes_bid_pct" type="number" step="0.01" min="0" max="100" /></label>
-            <label>YES Ask %<input name="yes_ask_pct" type="number" step="0.01" min="0" max="100" /></label>
-            <label>Last Trade %<input name="last_trade_price_pct" type="number" step="0.01" min="0" max="100" /></label>
+            <label>YES Bid %<input name="yes_bid_pct" type="number" step="0.01" min="0" max="100" value={yesBidPct} onChange={(event) => setYesBidPct(event.target.value)} /></label>
+            <label>YES Ask %<input name="yes_ask_pct" type="number" step="0.01" min="0" max="100" value={yesAskPct} onChange={(event) => setYesAskPct(event.target.value)} /></label>
+            <label>Last Trade %<input name="last_trade_price_pct" type="number" step="0.01" min="0" max="100" value={lastTradePct} onChange={(event) => setLastTradePct(event.target.value)} /></label>
           </div>
           <div className="form-grid">
             <label>Research Quality<select name="research_quality" defaultValue="medium"><option value="">-</option><option>low</option><option>medium</option><option>high</option></select></label>
@@ -128,22 +158,9 @@ export function MarketActions({
       </section>
 
       <section className="panel">
-        <h2>Open Position</h2>
-        <form className="form" onSubmit={openPosition}>
-          <div className="form-grid">
-            <label>Linked Forecast<select name="linked_forecast_id" required>{forecasts.map((f) => <option value={f.id} key={f.id}>{new Date(f.timestamp).toLocaleString()} | edge {(f.edge_bps / 100).toFixed(2)}%</option>)}</select></label>
-            <label>Side<select name="side"><option>YES</option><option>NO</option></select></label>
-            <label>Entry Price %<input name="entry_price_pct" type="number" step="0.01" min="0" max="100" required /></label>
-          </div>
-          <div className="form-grid">
-            <label>Quantity<input name="quantity" type="number" min="1" required /></label>
-            <label>Fees $<input name="fees" type="number" step="0.01" min="0" defaultValue="0" /></label>
-          </div>
-          <label>Reason<textarea name="reason" /></label>
-          <label>Notes<textarea name="notes" /></label>
-          <button disabled={forecasts.length === 0}>Open Position</button>
-          {forecasts.length === 0 && <div className="muted">Add a forecast before opening a position.</div>}
-        </form>
+        <h2>Trade Data</h2>
+        <p className="muted">Buys, sells, fees, positions, and settlements should come from Kalshi sync. Use manual trade entry only as a fallback outside the main workflow.</p>
+        <a className="button secondary" href="/settings/kalshi">Sync Kalshi</a>
       </section>
 
       <section className="panel">
@@ -156,13 +173,6 @@ export function MarketActions({
           <button className="secondary">Resolve</button>
         </form>
       </section>
-
-      {positions.length > 0 && (
-        <section className="panel">
-          <h2>Position Actions</h2>
-          <div className="muted">Use the position detail page to add buy/sell executions.</div>
-        </section>
-      )}
     </div>
   );
 }

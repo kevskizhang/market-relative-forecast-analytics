@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -69,6 +70,94 @@ class SnapshotRead(SnapshotCreate):
     created_at: datetime
 
 
+class KalshiMarketRead(BaseModel):
+    ticker: str
+    event_ticker: str | None = None
+    title: str
+    description: str | None = None
+    category: str
+    market_url: str
+    resolution_criteria: str
+    expected_resolution_date: str | None = None
+    status: str | None = None
+    yes_bid_bps: int | None = None
+    yes_ask_bps: int | None = None
+    last_trade_price_bps: int | None = None
+    market_probability_yes_bps: int | None = None
+    volume: int | None = None
+    open_interest: int | None = None
+
+
+class KalshiImportCreate(BaseModel):
+    ticker: str
+
+
+class KalshiFillImportCreate(BaseModel):
+    ticker: str | None = None
+    min_ts: int | None = None
+    max_ts: int | None = None
+
+
+class KalshiFillImportResult(BaseModel):
+    received: int
+    stored: int
+    converted: int
+    skipped: int
+
+
+class KalshiSyncCreate(BaseModel):
+    ticker: str | None = None
+    min_ts: int | None = None
+    max_ts: int | None = None
+    include_historical: bool = False
+
+
+class KalshiSyncResult(BaseModel):
+    fills_received: int
+    fills_stored: int
+    fills_converted: int
+    fills_skipped: int
+    orders_received: int
+    orders_stored: int
+    orders_skipped: int
+    settlements_received: int
+    settlements_stored: int
+    settlements_converted: int
+    settlements_skipped: int
+    position_snapshots_received: int
+    position_snapshots_stored: int
+    position_snapshots_skipped: int
+    balance_snapshots_stored: int
+    deposits_received: int
+    deposits_stored: int
+    deposits_skipped: int
+    withdrawals_received: int
+    withdrawals_stored: int
+    withdrawals_skipped: int
+
+
+class KalshiReconciliationRead(BaseModel):
+    raw_fills: int
+    unconverted_fills: int
+    raw_orders: int
+    raw_settlements: int
+    unconverted_settlements: int
+    raw_position_snapshots: int
+    raw_balance_snapshots: int
+    raw_deposits: int
+    raw_withdrawals: int
+    imported_positions_missing_forecast: int
+    imported_open_positions: int
+    resolved_markets_needing_review: int
+
+
+class KalshiRebuildResult(BaseModel):
+    deleted_positions: int
+    deleted_executions: int
+    converted_fills: int
+    converted_settlements: int
+
+
 class ForecastCreate(BaseModel):
     timestamp: datetime | None = None
     market_snapshot_id: uuid.UUID | None = None
@@ -80,6 +169,20 @@ class ForecastCreate(BaseModel):
     information_sources: str | None = None
     research_quality: str | None = None
     forecast_type: str = "initial"
+    notes: str | None = None
+
+
+class ForecastUpdate(BaseModel):
+    timestamp: datetime | None = None
+    market_snapshot_id: uuid.UUID | None = None
+    forecast_probability_yes_bps: int | None = Field(default=None, ge=0, le=10000)
+    market_probability_yes_bps: int | None = Field(default=None, ge=0, le=10000)
+    confidence: int | None = Field(default=None, ge=1, le=5)
+    thesis: str | None = None
+    invalidation_criteria: str | None = None
+    information_sources: str | None = None
+    research_quality: str | None = None
+    forecast_type: str | None = None
     notes: str | None = None
 
 
@@ -100,7 +203,7 @@ class PositionCreate(BaseModel):
     side: str
     opened_at: datetime | None = None
     entry_price_bps: int = Field(ge=0, le=10000)
-    quantity: int = Field(gt=0)
+    quantity: Decimal = Field(gt=0)
     fees_minor_units: int = Field(default=0, ge=0)
     order_type: str = "manual"
     reason: str | None = None
@@ -108,7 +211,7 @@ class PositionCreate(BaseModel):
 
 
 class PositionRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: float})
 
     id: uuid.UUID
     market_id: uuid.UUID
@@ -117,7 +220,7 @@ class PositionRead(BaseModel):
     status: str
     opened_at: datetime
     closed_at: datetime | None = None
-    quantity: int
+    quantity: Decimal
     average_entry_price_bps: int | None = None
     average_exit_price_bps: int | None = None
     initial_cost_minor_units: int | None = None
@@ -132,12 +235,18 @@ class PositionRead(BaseModel):
     updated_at: datetime
 
 
+class PositionUpdate(BaseModel):
+    linked_forecast_id: uuid.UUID | None = None
+    opened_at: datetime | None = None
+    position_notes: str | None = None
+
+
 class ExecutionCreate(BaseModel):
     timestamp: datetime | None = None
     action: str
     side: str
     price_bps: int = Field(ge=0, le=10000)
-    quantity: int = Field(gt=0)
+    quantity: Decimal = Field(gt=0)
     fees_minor_units: int = Field(default=0, ge=0)
     order_type: str = "manual"
     reason: str | None = None
@@ -146,7 +255,7 @@ class ExecutionCreate(BaseModel):
 
 
 class ExecutionRead(ExecutionCreate):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, json_encoders={Decimal: float})
 
     id: uuid.UUID
     position_id: uuid.UUID

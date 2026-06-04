@@ -3,7 +3,9 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Integer, String, Text
+from decimal import Decimal
+
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -119,7 +121,7 @@ class Position(Base):
     status: Mapped[str] = mapped_column(String, nullable=False, default="open")
     opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now_utc)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False, default=Decimal("0"))
     average_entry_price_bps: Mapped[int | None] = mapped_column(Integer)
     average_exit_price_bps: Mapped[int | None] = mapped_column(Integer)
     initial_cost_minor_units: Mapped[int | None] = mapped_column(Integer)
@@ -149,13 +151,14 @@ class Execution(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    kalshi_fill_id: Mapped[str | None] = mapped_column(String, unique=True)
     position_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("positions.id"), nullable=False)
     market_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("markets.id"), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now_utc)
     action: Mapped[str] = mapped_column(String, nullable=False)
     side: Mapped[str] = mapped_column(String, nullable=False)
     price_bps: Mapped[int] = mapped_column(Integer, nullable=False)
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
     fees_minor_units: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     order_type: Mapped[str] = mapped_column(String, nullable=False, default="manual")
     reason: Mapped[str | None] = mapped_column(Text)
@@ -163,6 +166,120 @@ class Execution(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now_utc)
 
     position: Mapped[Position] = relationship(back_populates="executions")
+
+
+class KalshiFill(Base):
+    __tablename__ = "kalshi_fills"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    fill_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    order_id: Mapped[str | None] = mapped_column(String)
+    trade_id: Mapped[str | None] = mapped_column(String)
+    ticker: Mapped[str] = mapped_column(String, nullable=False)
+    market_ticker: Mapped[str | None] = mapped_column(String)
+    action: Mapped[str | None] = mapped_column(String)
+    side: Mapped[str | None] = mapped_column(String)
+    count: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    yes_price_bps: Mapped[int | None] = mapped_column(Integer)
+    no_price_bps: Mapped[int | None] = mapped_column(Integer)
+    fee_minor_units: Mapped[int | None] = mapped_column(Integer)
+    created_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    imported_execution_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("executions.id"))
+    raw_json: Mapped[str] = mapped_column(Text, nullable=False)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now_utc)
+
+
+class KalshiOrder(Base):
+    __tablename__ = "kalshi_orders"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    order_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    ticker: Mapped[str] = mapped_column(String, nullable=False)
+    action: Mapped[str | None] = mapped_column(String)
+    side: Mapped[str | None] = mapped_column(String)
+    status: Mapped[str | None] = mapped_column(String)
+    order_type: Mapped[str | None] = mapped_column(String)
+    initial_count: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    fill_count: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    remaining_count: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    yes_price_bps: Mapped[int | None] = mapped_column(Integer)
+    no_price_bps: Mapped[int | None] = mapped_column(Integer)
+    created_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    raw_json: Mapped[str] = mapped_column(Text, nullable=False)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now_utc)
+
+
+class KalshiSettlement(Base):
+    __tablename__ = "kalshi_settlements"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    settlement_key: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    ticker: Mapped[str] = mapped_column(String, nullable=False)
+    event_ticker: Mapped[str | None] = mapped_column(String)
+    market_result: Mapped[str | None] = mapped_column(String)
+    yes_count: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    no_count: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    revenue_minor_units: Mapped[int | None] = mapped_column(Integer)
+    value_minor_units: Mapped[int | None] = mapped_column(Integer)
+    fee_minor_units: Mapped[int | None] = mapped_column(Integer)
+    settled_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    imported_outcome_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("outcomes.id"))
+    raw_json: Mapped[str] = mapped_column(Text, nullable=False)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now_utc)
+
+
+class KalshiPositionSnapshot(Base):
+    __tablename__ = "kalshi_position_snapshots"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    snapshot_key: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    ticker: Mapped[str] = mapped_column(String, nullable=False)
+    position: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    yes_count: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    no_count: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    market_exposure_minor_units: Mapped[int | None] = mapped_column(Integer)
+    raw_json: Mapped[str] = mapped_column(Text, nullable=False)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now_utc)
+
+
+class KalshiBalanceSnapshot(Base):
+    __tablename__ = "kalshi_balance_snapshots"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    balance_minor_units: Mapped[int | None] = mapped_column(Integer)
+    portfolio_value_minor_units: Mapped[int | None] = mapped_column(Integer)
+    raw_json: Mapped[str] = mapped_column(Text, nullable=False)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now_utc)
+
+
+class KalshiDeposit(Base):
+    __tablename__ = "kalshi_deposits"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    deposit_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    status: Mapped[str | None] = mapped_column(String)
+    deposit_type: Mapped[str | None] = mapped_column(String)
+    amount_minor_units: Mapped[int | None] = mapped_column(Integer)
+    fee_minor_units: Mapped[int | None] = mapped_column(Integer)
+    created_ts: Mapped[int | None] = mapped_column(Integer)
+    finalized_ts: Mapped[int | None] = mapped_column(Integer)
+    raw_json: Mapped[str] = mapped_column(Text, nullable=False)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now_utc)
+
+
+class KalshiWithdrawal(Base):
+    __tablename__ = "kalshi_withdrawals"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    withdrawal_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    status: Mapped[str | None] = mapped_column(String)
+    withdrawal_type: Mapped[str | None] = mapped_column(String)
+    amount_minor_units: Mapped[int | None] = mapped_column(Integer)
+    fee_minor_units: Mapped[int | None] = mapped_column(Integer)
+    created_ts: Mapped[int | None] = mapped_column(Integer)
+    finalized_ts: Mapped[int | None] = mapped_column(Integer)
+    raw_json: Mapped[str] = mapped_column(Text, nullable=False)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now_utc)
 
 
 class Outcome(Base):
@@ -229,4 +346,3 @@ class BankrollSnapshot(Base):
     total_equity_minor_units: Mapped[int] = mapped_column(Integer, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now_utc)
-

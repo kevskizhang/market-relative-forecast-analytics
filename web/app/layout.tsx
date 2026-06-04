@@ -13,11 +13,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="shell">
           <nav className="nav">
             <div className="brand">Market-Relative Forecast Analytics</div>
-            <Link href="/">Dashboard</Link>
+            <Link href="/">Home</Link>
+            <Link href="/settings/kalshi">Sync Kalshi</Link>
+            <Link href="/needs-forecast">Needs Forecast</Link>
             <Link href="/markets">Markets</Link>
-            <Link href="/markets/new">New Market</Link>
             <Link href="/positions">Positions</Link>
-            <Link href="/bankroll">Bankroll</Link>
             <Link href="/settings/export">Export</Link>
             <Link href="/methodology">Methodology</Link>
           </nav>
@@ -27,4 +27,3 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
-

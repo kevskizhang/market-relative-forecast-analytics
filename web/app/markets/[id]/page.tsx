@@ -1,6 +1,7 @@
 import { apiGet, Forecast, Market, Position, Snapshot } from "@/lib/api";
-import { formatBps, formatDate, formatMoney } from "@/lib/format";
+import { formatBps, formatDate, formatMoney, formatQuantity } from "@/lib/format";
 import { MarketActions } from "./MarketActions";
+import { UndoResolutionButton } from "./UndoResolutionButton";
 
 export default async function MarketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -29,13 +30,14 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ i
         <h2>Market</h2>
         <p>{market.resolution_criteria}</p>
         {market.market_url && <p><a href={market.market_url} target="_blank">Open Kalshi market</a></p>}
+        {market.status !== "open" && <UndoResolutionButton marketId={market.id} />}
       </section>
 
       <div className="grid">
         <section className="panel">
           <h2>Forecasts</h2>
           <table>
-            <thead><tr><th>Time</th><th>Market</th><th>Mine</th><th>Edge</th><th>Status</th></tr></thead>
+          <thead><tr><th>Time</th><th>Market</th><th>Mine</th><th>Edge</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {forecasts.map((forecast) => (
                 <tr key={forecast.id}>
@@ -44,6 +46,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ i
                   <td>{formatBps(forecast.forecast_probability_yes_bps)}</td>
                   <td>{formatBps(forecast.edge_bps)}</td>
                   <td>{forecast.status}</td>
+                  <td><a href={`/forecasts/${forecast.id}/edit`}>Edit</a></td>
                 </tr>
               ))}
             </tbody>
@@ -71,16 +74,17 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ i
       <section className="panel">
         <h2>Positions</h2>
         <table>
-          <thead><tr><th>Opened</th><th>Side</th><th>Status</th><th>Qty</th><th>Cost Basis</th><th>Realized P&amp;L</th></tr></thead>
+          <thead><tr><th>Opened</th><th>Side</th><th>Status</th><th>Qty</th><th>Cost Basis</th><th>Realized P&amp;L</th><th></th></tr></thead>
           <tbody>
             {positions.map((position) => (
               <tr key={position.id}>
                 <td><a href={`/positions/${position.id}`}>{formatDate(position.opened_at)}</a></td>
                 <td>{position.side}</td>
                 <td>{position.status}</td>
-                <td>{position.quantity}</td>
+                <td>{formatQuantity(position.quantity)}</td>
                 <td>{formatMoney(position.remaining_cost_basis_minor_units)}</td>
                 <td>{formatMoney(position.realized_pnl_minor_units)}</td>
+                <td><a href={`/positions/${position.id}/edit`}>Edit</a></td>
               </tr>
             ))}
           </tbody>
@@ -105,7 +109,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ i
         </section>
       )}
 
-      <MarketActions marketId={id} forecasts={forecasts} positions={positions} />
+      <MarketActions marketId={id} kalshiTicker={market.platform_market_id} forecasts={forecasts} />
     </div>
   );
 }

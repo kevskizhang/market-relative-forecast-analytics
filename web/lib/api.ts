@@ -27,6 +27,10 @@ export type Forecast = {
   edge_bps: number;
   confidence: number;
   thesis: string;
+  invalidation_criteria?: string | null;
+  research_quality?: string | null;
+  forecast_type: string;
+  notes?: string | null;
   status: string;
 };
 
@@ -38,6 +42,21 @@ export type Snapshot = {
   yes_bid_bps?: number | null;
   yes_ask_bps?: number | null;
   spread_bps?: number | null;
+};
+
+export type KalshiMarket = {
+  ticker: string;
+  title: string;
+  category: string;
+  market_url: string;
+  resolution_criteria: string;
+  expected_resolution_date?: string | null;
+  yes_bid_bps?: number | null;
+  yes_ask_bps?: number | null;
+  last_trade_price_bps?: number | null;
+  market_probability_yes_bps?: number | null;
+  volume?: number | null;
+  open_interest?: number | null;
 };
 
 export type Position = {
@@ -56,6 +75,7 @@ export type Position = {
   realized_pnl_minor_units: number;
   total_pnl_minor_units?: number | null;
   fees_minor_units: number;
+  position_notes?: string | null;
 };
 
 export type Execution = {

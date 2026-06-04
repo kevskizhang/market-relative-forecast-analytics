@@ -15,3 +15,12 @@ export function formatDate(value?: string | null): string {
   return new Date(value).toLocaleString();
 }
 
+export function formatQuantity(value?: number | string | null): string {
+  if (value === null || value === undefined) return "-";
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return String(value);
+  return numeric.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 6,
+  });
+}

@@ -28,10 +28,10 @@ export default async function DashboardPage() {
     <div className="stack">
       <div className="page-head">
         <div>
-          <h1>Dashboard</h1>
-          <div className="muted">Manual Kalshi forecast and trade logging.</div>
+          <h1>Kalshi Forecast Journal</h1>
+          <div className="muted">Sync trading activity from Kalshi, then add forecasts and reviews.</div>
         </div>
-        <a className="button" href="/markets/new">New Market</a>
+        <a className="button" href="/settings/kalshi">Sync Kalshi</a>
       </div>
 
       {!summary ? (
@@ -66,7 +66,16 @@ export default async function DashboardPage() {
           </section>
         </div>
       )}
+
+      <section className="panel">
+        <h2>Workflow</h2>
+        <div className="grid">
+          <a className="button secondary" href="/settings/kalshi">1. Sync Kalshi</a>
+          <a className="button secondary" href="/needs-forecast">2. Add Missing Forecasts</a>
+          <a className="button secondary" href="/markets">3. Review Markets</a>
+          <a className="button secondary" href="/settings/export">4. Export Data</a>
+        </div>
+      </section>
     </div>
   );
 }
-

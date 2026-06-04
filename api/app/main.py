@@ -5,9 +5,10 @@ import io
 import os
 import uuid
 
-from fastapi import Depends, FastAPI, Response
+from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from .database import Base, engine, get_db
@@ -16,12 +17,20 @@ from .models import (
     Execution,
     Forecast,
     ForecastScore,
+    KalshiBalanceSnapshot,
+    KalshiDeposit,
+    KalshiFill,
+    KalshiOrder,
+    KalshiPositionSnapshot,
+    KalshiSettlement,
+    KalshiWithdrawal,
     Market,
     MarketSnapshot,
     Outcome,
     Position,
     Postmortem,
 )
+from . import kalshi
 from .schemas import (
     BankrollSnapshotCreate,
     BankrollSnapshotRead,
@@ -29,7 +38,16 @@ from .schemas import (
     ExecutionRead,
     ForecastCreate,
     ForecastRead,
+    ForecastUpdate,
     ForecastScoreRead,
+    KalshiImportCreate,
+    KalshiFillImportCreate,
+    KalshiFillImportResult,
+    KalshiReconciliationRead,
+    KalshiRebuildResult,
+    KalshiSyncCreate,
+    KalshiSyncResult,
+    KalshiMarketRead,
     MarketCreate,
     MarketRead,
     MarketUpdate,
@@ -37,6 +55,7 @@ from .schemas import (
     OutcomeRead,
     PositionCreate,
     PositionRead,
+    PositionUpdate,
     PostmortemCreate,
     PostmortemRead,
     SnapshotCreate,
@@ -49,17 +68,30 @@ from .services import (
     create_market,
     create_postmortem,
     create_snapshot,
+    delete_forecast,
+    delete_position,
+    create_kalshi_snapshot,
+    import_kalshi_market,
+    import_kalshi_fills,
     open_position,
     require_market,
     require_position,
+    require_forecast,
     resolve_market,
+    update_market_from_kalshi,
     update_market,
+    update_forecast,
+    update_position,
+    sync_kalshi_activity,
+    rebuild_kalshi_derived_records,
+    undo_market_resolution,
 )
 
 
 app = FastAPI(title="Market-Relative Forecast Analytics API")
 
-origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")]
+configured_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")]
+origins = sorted(set(configured_origins + ["http://localhost:3000", "http://127.0.0.1:3000"]))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -77,6 +109,83 @@ def startup() -> None:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/kalshi/markets/{ticker}", response_model=KalshiMarketRead)
+def get_kalshi_market(ticker: str) -> dict[str, object]:
+    try:
+        return kalshi.search_market(ticker)
+    except kalshi.KalshiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/kalshi/import-market", response_model=MarketRead)
+def post_kalshi_import(data: KalshiImportCreate, db: Session = Depends(get_db)) -> Market:
+    try:
+        return import_kalshi_market(db, data.ticker)
+    except kalshi.KalshiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/kalshi/import-fills", response_model=KalshiFillImportResult)
+def post_kalshi_fill_import(data: KalshiFillImportCreate, db: Session = Depends(get_db)) -> dict[str, int]:
+    try:
+        return import_kalshi_fills(db, ticker=data.ticker, min_ts=data.min_ts, max_ts=data.max_ts)
+    except kalshi.KalshiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/kalshi/sync", response_model=KalshiSyncResult)
+def post_kalshi_sync(data: KalshiSyncCreate, db: Session = Depends(get_db)) -> dict[str, int]:
+    try:
+        return sync_kalshi_activity(
+            db,
+            ticker=data.ticker,
+            min_ts=data.min_ts,
+            max_ts=data.max_ts,
+            include_historical=data.include_historical,
+        )
+    except kalshi.KalshiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/kalshi/reconciliation", response_model=KalshiReconciliationRead)
+def get_kalshi_reconciliation(db: Session = Depends(get_db)) -> dict[str, int]:
+    return {
+        "raw_fills": db.scalar(select(func.count(KalshiFill.id))) or 0,
+        "unconverted_fills": db.scalar(select(func.count(KalshiFill.id)).where(KalshiFill.imported_execution_id.is_(None))) or 0,
+        "raw_orders": db.scalar(select(func.count(KalshiOrder.id))) or 0,
+        "raw_settlements": db.scalar(select(func.count(KalshiSettlement.id))) or 0,
+        "unconverted_settlements": db.scalar(select(func.count(KalshiSettlement.id)).where(KalshiSettlement.imported_outcome_id.is_(None))) or 0,
+        "raw_position_snapshots": db.scalar(select(func.count(KalshiPositionSnapshot.id))) or 0,
+        "raw_balance_snapshots": db.scalar(select(func.count(KalshiBalanceSnapshot.id))) or 0,
+        "raw_deposits": db.scalar(select(func.count(KalshiDeposit.id))) or 0,
+        "raw_withdrawals": db.scalar(select(func.count(KalshiWithdrawal.id))) or 0,
+        "imported_positions_missing_forecast": db.scalar(
+            select(func.count(Position.id)).where(
+                Position.linked_forecast_id.is_(None),
+                Position.position_notes.ilike("%Imported from Kalshi%"),
+            )
+        ) or 0,
+        "imported_open_positions": db.scalar(
+            select(func.count(Position.id)).where(
+                Position.status.in_(["open", "partially_closed"]),
+                Position.position_notes.ilike("%Imported from Kalshi%"),
+            )
+        ) or 0,
+        "resolved_markets_needing_review": db.scalar(
+            select(func.count(Market.id)).where(Market.status == "resolved")
+        ) or 0,
+    }
+
+
+@app.post("/kalshi/rebuild-derived", response_model=KalshiRebuildResult)
+def post_kalshi_rebuild(db: Session = Depends(get_db)) -> dict[str, int]:
+    try:
+        return rebuild_kalshi_derived_records(db)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.get("/markets", response_model=list[MarketRead])
@@ -99,6 +208,14 @@ def patch_market(market_id: uuid.UUID, data: MarketUpdate, db: Session = Depends
     return update_market(db, market_id, data)
 
 
+@app.post("/markets/{market_id}/sync-kalshi", response_model=MarketRead)
+def post_market_sync_kalshi(market_id: uuid.UUID, db: Session = Depends(get_db)) -> Market:
+    try:
+        return update_market_from_kalshi(db, market_id)
+    except kalshi.KalshiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @app.get("/markets/{market_id}/snapshots", response_model=list[SnapshotRead])
 def list_snapshots(market_id: uuid.UUID, db: Session = Depends(get_db)) -> list[MarketSnapshot]:
     require_market(db, market_id)
@@ -116,6 +233,14 @@ def post_snapshot(market_id: uuid.UUID, data: SnapshotCreate, db: Session = Depe
     return create_snapshot(db, market_id, data)
 
 
+@app.post("/markets/{market_id}/snapshots/kalshi", response_model=SnapshotRead)
+def post_kalshi_snapshot(market_id: uuid.UUID, db: Session = Depends(get_db)) -> MarketSnapshot:
+    try:
+        return create_kalshi_snapshot(db, market_id)
+    except kalshi.KalshiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @app.get("/markets/{market_id}/forecasts", response_model=list[ForecastRead])
 def list_forecasts(market_id: uuid.UUID, db: Session = Depends(get_db)) -> list[Forecast]:
     require_market(db, market_id)
@@ -127,6 +252,22 @@ def post_forecast(market_id: uuid.UUID, data: ForecastCreate, db: Session = Depe
     return create_forecast(db, market_id, data)
 
 
+@app.get("/forecasts/{forecast_id}", response_model=ForecastRead)
+def get_forecast(forecast_id: uuid.UUID, db: Session = Depends(get_db)) -> Forecast:
+    return require_forecast(db, forecast_id)
+
+
+@app.patch("/forecasts/{forecast_id}", response_model=ForecastRead)
+def patch_forecast(forecast_id: uuid.UUID, data: ForecastUpdate, db: Session = Depends(get_db)) -> Forecast:
+    return update_forecast(db, forecast_id, data)
+
+
+@app.delete("/forecasts/{forecast_id}")
+def remove_forecast(forecast_id: uuid.UUID, db: Session = Depends(get_db)) -> dict[str, bool]:
+    delete_forecast(db, forecast_id)
+    return {"deleted": True}
+
+
 @app.get("/markets/{market_id}/positions", response_model=list[PositionRead])
 def list_market_positions(market_id: uuid.UUID, db: Session = Depends(get_db)) -> list[Position]:
     require_market(db, market_id)
@@ -136,6 +277,11 @@ def list_market_positions(market_id: uuid.UUID, db: Session = Depends(get_db)) -
 @app.post("/markets/{market_id}/resolve", response_model=OutcomeRead)
 def post_resolution(market_id: uuid.UUID, data: OutcomeCreate, db: Session = Depends(get_db)) -> Outcome:
     return resolve_market(db, market_id, data)
+
+
+@app.delete("/markets/{market_id}/resolution", response_model=MarketRead)
+def delete_resolution(market_id: uuid.UUID, db: Session = Depends(get_db)) -> Market:
+    return undo_market_resolution(db, market_id)
 
 
 @app.get("/markets/{market_id}/scores", response_model=list[ForecastScoreRead])
@@ -157,6 +303,17 @@ def post_position(data: PositionCreate, db: Session = Depends(get_db)) -> Positi
 @app.get("/positions/{position_id}", response_model=PositionRead)
 def get_position(position_id: uuid.UUID, db: Session = Depends(get_db)) -> Position:
     return require_position(db, position_id)
+
+
+@app.patch("/positions/{position_id}", response_model=PositionRead)
+def patch_position(position_id: uuid.UUID, data: PositionUpdate, db: Session = Depends(get_db)) -> Position:
+    return update_position(db, position_id, data)
+
+
+@app.delete("/positions/{position_id}")
+def remove_position(position_id: uuid.UUID, db: Session = Depends(get_db)) -> dict[str, bool]:
+    delete_position(db, position_id)
+    return {"deleted": True}
 
 
 @app.get("/positions/{position_id}/executions", response_model=list[ExecutionRead])
@@ -244,6 +401,13 @@ def export_csv(name: str, db: Session = Depends(get_db)) -> Response:
         "outcomes": Outcome,
         "postmortems": Postmortem,
         "bankroll-snapshots": BankrollSnapshot,
+        "kalshi-fills": KalshiFill,
+        "kalshi-orders": KalshiOrder,
+        "kalshi-settlements": KalshiSettlement,
+        "kalshi-position-snapshots": KalshiPositionSnapshot,
+        "kalshi-balance-snapshots": KalshiBalanceSnapshot,
+        "kalshi-deposits": KalshiDeposit,
+        "kalshi-withdrawals": KalshiWithdrawal,
     }
     model = tables.get(name)
     if model is None:

@@ -1,4 +1,5 @@
 import { apiGet, Market } from "@/lib/api";
+import { KalshiImportForm } from "./KalshiImportForm";
 
 export default async function MarketsPage() {
   const markets = await apiGet<Market[]>("/markets");
@@ -12,6 +13,8 @@ export default async function MarketsPage() {
         </div>
         <a className="button" href="/markets/new">New Market</a>
       </div>
+
+      <KalshiImportForm />
 
       <section className="panel">
         <table>
@@ -38,4 +41,3 @@ export default async function MarketsPage() {
     </div>
   );
 }
-

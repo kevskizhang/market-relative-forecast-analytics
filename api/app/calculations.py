@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal, ROUND_HALF_UP
 
 BPS_DENOMINATOR = 10_000
 CENTS_PER_CONTRACT = 100
@@ -44,27 +45,38 @@ def brier_scores_bps_squared(
     return outcome_value_bps, user_score, market_score, market_score - user_score
 
 
-def contract_value_minor_units(quantity: int, price_bps: int) -> int:
-    if quantity < 0:
+def _decimal(value: object) -> Decimal:
+    return Decimal(str(value))
+
+
+def _round_cents(value: Decimal) -> int:
+    return int(value.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def contract_value_minor_units(quantity: object, price_bps: int) -> int:
+    qty = _decimal(quantity)
+    if qty < 0:
         raise ValueError("quantity must be non-negative")
     clamp_bps(price_bps)
-    return round(quantity * price_bps * CENTS_PER_CONTRACT / BPS_DENOMINATOR)
+    value = qty * Decimal(price_bps) * Decimal(CENTS_PER_CONTRACT) / Decimal(BPS_DENOMINATOR)
+    return _round_cents(value)
 
 
-def buy_cost_minor_units(quantity: int, price_bps: int, fees_minor_units: int = 0) -> int:
+def buy_cost_minor_units(quantity: object, price_bps: int, fees_minor_units: int = 0) -> int:
     if fees_minor_units < 0:
         raise ValueError("fees must be non-negative")
     return contract_value_minor_units(quantity, price_bps) + fees_minor_units
 
 
-def sell_proceeds_minor_units(quantity: int, price_bps: int, fees_minor_units: int = 0) -> int:
+def sell_proceeds_minor_units(quantity: object, price_bps: int, fees_minor_units: int = 0) -> int:
     if fees_minor_units < 0:
         raise ValueError("fees must be non-negative")
     return contract_value_minor_units(quantity, price_bps) - fees_minor_units
 
 
-def average_price_bps(total_minor_units: int, quantity: int) -> int | None:
-    if quantity <= 0:
+def average_price_bps(total_minor_units: int, quantity: object) -> int | None:
+    qty = _decimal(quantity)
+    if qty <= 0:
         return None
-    return round(total_minor_units * BPS_DENOMINATOR / (quantity * CENTS_PER_CONTRACT))
-
+    value = Decimal(total_minor_units) * Decimal(BPS_DENOMINATOR) / (qty * Decimal(CENTS_PER_CONTRACT))
+    return int(value.quantize(Decimal("1"), rounding=ROUND_HALF_UP))

@@ -1,5 +1,5 @@
 import { apiGet, Position } from "@/lib/api";
-import { formatBps, formatDate, formatMoney } from "@/lib/format";
+import { formatBps, formatDate, formatMoney, formatQuantity } from "@/lib/format";
 
 export default async function PositionsPage() {
   const positions = await apiGet<Position[]>("/positions");
@@ -18,7 +18,7 @@ export default async function PositionsPage() {
                 <td><a href={`/positions/${position.id}`}>{formatDate(position.opened_at)}</a></td>
                 <td>{position.side}</td>
                 <td>{position.status}</td>
-                <td>{position.quantity}</td>
+                <td>{formatQuantity(position.quantity)}</td>
                 <td>{formatBps(position.average_entry_price_bps)}</td>
                 <td>{formatMoney(position.remaining_cost_basis_minor_units)}</td>
                 <td>{formatMoney(position.total_pnl_minor_units ?? position.realized_pnl_minor_units)}</td>
@@ -30,4 +30,3 @@ export default async function PositionsPage() {
     </div>
   );
 }
-

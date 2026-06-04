@@ -1,5 +1,5 @@
 import { apiGet, Execution, Forecast, Position } from "@/lib/api";
-import { formatBps, formatDate, formatMoney } from "@/lib/format";
+import { formatBps, formatDate, formatMoney, formatQuantity } from "@/lib/format";
 import { ExecutionForm } from "./ExecutionForm";
 
 export default async function PositionDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,11 +17,14 @@ export default async function PositionDetailPage({ params }: { params: Promise<{
           <h1>{position.side} Position</h1>
           <div className="muted">Opened {formatDate(position.opened_at)}</div>
         </div>
-        <span className="pill">{position.status}</span>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <a className="button secondary" href={`/positions/${position.id}/edit`}>Edit</a>
+          <span className="pill">{position.status}</span>
+        </div>
       </div>
 
       <div className="grid">
-        <section className="panel"><h2>Quantity</h2><div className="metric">{position.quantity}</div></section>
+        <section className="panel"><h2>Quantity</h2><div className="metric">{formatQuantity(position.quantity)}</div></section>
         <section className="panel"><h2>Avg Entry</h2><div className="metric">{formatBps(position.average_entry_price_bps)}</div></section>
         <section className="panel"><h2>Cost Basis</h2><div className="metric">{formatMoney(position.remaining_cost_basis_minor_units)}</div></section>
         <section className="panel"><h2>Realized P&amp;L</h2><div className="metric">{formatMoney(position.realized_pnl_minor_units)}</div></section>
@@ -38,7 +41,7 @@ export default async function PositionDetailPage({ params }: { params: Promise<{
                 <td>{execution.action}</td>
                 <td>{execution.side}</td>
                 <td>{formatBps(execution.price_bps)}</td>
-                <td>{execution.quantity}</td>
+                <td>{formatQuantity(execution.quantity)}</td>
                 <td>{formatMoney(execution.fees_minor_units)}</td>
                 <td>{execution.reason}</td>
               </tr>
@@ -51,4 +54,3 @@ export default async function PositionDetailPage({ params }: { params: Promise<{
     </div>
   );
 }
-

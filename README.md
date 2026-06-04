@@ -1,6 +1,6 @@
 # Market-Relative Forecast Analytics
 
-Personal Kalshi forecast and trade journal for logging binary prediction markets, subjective probabilities, executions, outcomes, bankroll snapshots, and market-relative scoring.
+Personal Kalshi forecast journal for syncing prediction-market activity from Kalshi, then adding subjective probabilities, thesis notes, reviews, and market-relative scoring.
 
 ## Development
 
@@ -30,6 +30,28 @@ The app automatically converts `postgresql://` to SQLAlchemy's installed `psycop
 
 The exact host and username may differ by Supabase region and connection mode. If your password contains special characters, URL-encode it.
 
+Kalshi public market data does not require credentials for the current MVP integration. Optional overrides:
+
+```text
+KALSHI_API_BASE_URL=https://external-api.kalshi.com/trade-api/v2
+KALSHI_WEB_BASE_URL=https://kalshi.com
+```
+
+Authenticated fill import requires a Kalshi API key:
+
+1. Open Kalshi account settings.
+2. Go to the API Keys section.
+3. Create a read-only key if Kalshi offers scopes.
+4. Save the private key file somewhere outside the repo.
+5. Add these to `api\.env`:
+
+```text
+KALSHI_ACCESS_KEY=<key-id>
+KALSHI_PRIVATE_KEY_PATH=C:\absolute\path\to\kalshi-private-key.pem
+```
+
+The app signs read-only requests with RSA-PSS. It does not place orders.
+
 ## Install Dependencies
 
 Python:
@@ -53,6 +75,18 @@ Initialize the Supabase database tables:
 
 ```powershell
 .\scripts\init-db.ps1
+```
+
+If you created tables before decimal quantities were added, run this one-time migration:
+
+```powershell
+.\scripts\migrate-decimal-quantities.ps1
+```
+
+If you created tables before Kalshi sync was added, run this one-time migration:
+
+```powershell
+.\scripts\migrate-kalshi-fills.ps1
 ```
 
 Terminal 1:
@@ -81,16 +115,34 @@ Docker Compose is still available if you want local Postgres later:
 docker compose up --build
 ```
 
-## Manual Logging Flow
+## Primary Workflow
 
-1. Add a bankroll snapshot.
-2. Create a market.
-3. Add a market snapshot and forecast.
-4. Open a position from the forecast.
-5. Add forecast updates as your view changes.
-6. Add buy/sell executions from the position detail page.
-7. Resolve the market when Kalshi resolves it.
-8. Export CSV files for analysis.
+1. Sync Kalshi activity from `/settings/kalshi`.
+2. Review imported markets and positions.
+3. Open `/needs-forecast` and add forecasts for imported positions that need your probability and thesis.
+4. Add forecast updates as your view changes.
+5. Let Kalshi sync provide fills, fees, positions, settlements, and account snapshots.
+6. Export CSV files for deeper analysis.
+
+Manual market and trade entry exists only as fallback. Kalshi should be treated as the source of truth for buys, sells, fees, settlements, and account data.
+
+## Kalshi Sync
+
+After configuring `KALSHI_ACCESS_KEY` and `KALSHI_PRIVATE_KEY_PATH`, start the API and web app, then open:
+
+```text
+http://localhost:3000/settings/kalshi
+```
+
+Use `Sync Kalshi` to pull recent fills, orders, settlements, and current position snapshots. Leave ticker blank for recent activity, or provide one ticker to filter fills/orders/settlements.
+
+The sync pipeline:
+
+- Stores raw Kalshi source records first.
+- Converts fills into executions.
+- Converts settlements into outcomes and forecast scores.
+- Keeps forecasts, thesis, and reviews manual.
+- Shows reconciliation counts for unconverted records and imported positions missing forecasts.
 
 ## Backend Tests
 

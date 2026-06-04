@@ -52,7 +52,7 @@ export function ExecutionForm({ position, forecasts }: { position: Position; for
         <div className="form-grid">
           <label>Action<select name="action" value={action} onChange={(e) => setAction(e.target.value)}><option value="sell">sell</option><option value="buy">buy</option></select></label>
           <label>Price %<input name="price_pct" type="number" step="0.01" min="0" max="100" required /></label>
-          <label>Quantity<input name="quantity" type="number" min="1" max={action === "sell" ? position.quantity : undefined} required /></label>
+          <label>Quantity<input name="quantity" type="number" min="0.000001" step="0.000001" max={action === "sell" ? position.quantity : undefined} required /></label>
           <label>Fees $<input name="fees" type="number" min="0" step="0.01" defaultValue="0" /></label>
         </div>
         {action === "buy" && (

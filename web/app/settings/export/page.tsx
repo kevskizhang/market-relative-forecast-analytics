@@ -1,6 +1,6 @@
 import { API_URL } from "@/lib/api";
 
-const exports = ["markets", "forecasts", "positions", "executions", "outcomes", "postmortems", "bankroll-snapshots"];
+const exports = ["markets", "forecasts", "positions", "executions", "outcomes", "postmortems", "bankroll-snapshots", "kalshi-fills", "kalshi-orders", "kalshi-settlements", "kalshi-position-snapshots", "kalshi-balance-snapshots", "kalshi-deposits", "kalshi-withdrawals"];
 
 export default function ExportPage() {
   return (
@@ -19,4 +19,3 @@ export default function ExportPage() {
     </div>
   );
 }
-
