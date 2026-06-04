@@ -165,7 +165,7 @@ export default async function DashboardPage() {
                   </div>
                   <div>
                     <div className="metric">{summary.data_health.resolved_markets_needing_review}</div>
-                    <div className="muted">resolved markets</div>
+                    <div className="muted">pending reviews</div>
                   </div>
                 </div>
               </div>
@@ -176,7 +176,7 @@ export default async function DashboardPage() {
               <div className="stack">
                 <a className="button secondary" href="/settings/kalshi">Sync Kalshi</a>
                 <a className="button secondary" href="/needs-forecast">Add Missing Forecasts</a>
-                <a className="button secondary" href="/markets">Review Markets</a>
+                <a className="button secondary" href="/review">Write Postmortems</a>
                 <a className="button secondary" href="/settings/export">Export Data</a>
               </div>
             </section>

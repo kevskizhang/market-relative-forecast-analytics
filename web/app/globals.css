@@ -428,6 +428,37 @@ th {
   padding: 14px;
 }
 
+.nested-panel {
+  box-shadow: none;
+  padding: 0;
+}
+
+.nested-panel summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  list-style: none;
+  padding: 14px;
+}
+
+.nested-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.nested-panel summary span:first-child {
+  flex: 1 1 360px;
+  font-weight: 720;
+}
+
+.review-form {
+  border-top: 1px solid var(--line-soft);
+  max-width: none;
+  padding: 14px;
+}
+
 .empty {
   color: var(--muted);
   padding: 18px 8px 6px;

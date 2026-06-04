@@ -92,6 +92,25 @@ export type Execution = {
   reason?: string | null;
 };
 
+export type Postmortem = {
+  id: string;
+  market_id: string;
+  position_id?: string | null;
+  reviewed_at: string;
+  did_thesis_play_out?: boolean | null;
+  forecast_error_reason?: string | null;
+  trade_error_reason?: string | null;
+  execution_quality?: number | null;
+  sizing_quality?: number | null;
+  exit_quality?: number | null;
+  process_score: number;
+  mistake_tags?: string[] | null;
+  lesson: string;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, { cache: "no-store" });
   if (!response.ok) {

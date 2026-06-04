@@ -187,9 +187,7 @@ def get_kalshi_reconciliation(db: Session = Depends(get_db)) -> dict[str, object
                 Position.position_notes.ilike("%Imported from Kalshi%"),
             )
         ) or 0,
-        "resolved_markets_needing_review": db.scalar(
-            select(func.count(Market.id)).where(Market.status == "resolved")
-        ) or 0,
+        "resolved_markets_needing_review": _pending_postmortem_count(db),
         "latest_raw_import_at": latest_raw_import_at,
         "latest_balance_snapshot_at": db.scalar(select(func.max(KalshiBalanceSnapshot.imported_at))),
     }
@@ -425,7 +423,7 @@ def dashboard_summary(db: Session = Depends(get_db)) -> dict[str, object]:
                     Position.position_notes.ilike("%Imported from Kalshi%"),
                 )
             ) or 0,
-            "resolved_markets_needing_review": db.scalar(select(func.count(Market.id)).where(Market.status == "resolved")) or 0,
+            "resolved_markets_needing_review": _pending_postmortem_count(db),
         },
     }
 
@@ -434,6 +432,32 @@ def _score_display(value: object) -> float | None:
     if value is None:
         return None
     return round(float(value) / 100_000_000, 6)
+
+
+def _pending_postmortem_count(db: Session) -> int:
+    reviewed_position_ids = {
+        row[0]
+        for row in db.execute(select(Postmortem.position_id).where(Postmortem.position_id.is_not(None)))
+        if row[0] is not None
+    }
+    position_query = select(func.count(Position.id)).where(Position.status.in_(["closed_before_resolution", "resolved", "voided"]))
+    if reviewed_position_ids:
+        position_query = position_query.where(Position.id.not_in(reviewed_position_ids))
+    pending_positions = db.scalar(position_query) or 0
+
+    market_ids_with_positions = {row[0] for row in db.execute(select(Position.market_id))}
+    reviewed_market_ids = {
+        row[0]
+        for row in db.execute(select(Postmortem.market_id).where(Postmortem.position_id.is_(None)))
+        if row[0] is not None
+    }
+    market_query = select(func.count(Market.id)).where(Market.status.in_(["resolved", "voided", "ambiguous"]))
+    if market_ids_with_positions:
+        market_query = market_query.where(Market.id.not_in(market_ids_with_positions))
+    if reviewed_market_ids:
+        market_query = market_query.where(Market.id.not_in(reviewed_market_ids))
+    pending_markets = db.scalar(market_query) or 0
+    return int(pending_positions) + int(pending_markets)
 
 
 @app.get("/exports/{name}.csv")

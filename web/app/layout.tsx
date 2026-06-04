@@ -27,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/markets">Markets</Link>
             <Link href="/positions">Positions</Link>
             <Link href="/bankroll">Bankroll</Link>
+            <Link href="/review">Review</Link>
             <Link href="/settings/export">Export</Link>
             <Link href="/methodology">Methodology</Link>
           </nav>
