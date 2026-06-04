@@ -20,6 +20,20 @@ class MarketCreate(BaseModel):
     notes: str | None = None
 
 
+class MarketUpdate(BaseModel):
+    platform_market_id: str | None = None
+    market_url: str | None = None
+    title: str | None = None
+    description: str | None = None
+    category: str | None = None
+    sub_category: str | None = None
+    resolution_criteria: str | None = None
+    yes_contract_name: str | None = None
+    no_contract_name: str | None = None
+    expected_resolution_date: date | None = None
+    notes: str | None = None
+
+
 class MarketRead(MarketCreate):
     model_config = ConfigDict(from_attributes=True)
 
@@ -219,4 +233,3 @@ class PostmortemRead(PostmortemCreate):
     reviewed_at: datetime
     created_at: datetime
     updated_at: datetime
-

@@ -7,7 +7,11 @@ export type Market = {
   platform_market_id?: string | null;
   market_url?: string | null;
   category: string;
+  description?: string | null;
+  sub_category?: string | null;
   resolution_criteria: string;
+  yes_contract_name?: string | null;
+  no_contract_name?: string | null;
   expected_resolution_date: string;
   status: string;
   final_outcome?: string | null;
@@ -74,4 +78,3 @@ export async function apiGet<T>(path: string): Promise<T> {
   }
   return response.json();
 }
-

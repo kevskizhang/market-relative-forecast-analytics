@@ -19,7 +19,10 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ i
           <h1>{market.title}</h1>
           <div className="muted">{market.category} | expected resolution {market.expected_resolution_date}</div>
         </div>
-        <span className="pill">{market.status}</span>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <a className="button secondary" href={`/markets/${market.id}/edit`}>Edit</a>
+          <span className="pill">{market.status}</span>
+        </div>
       </div>
 
       <section className="panel">
@@ -106,4 +109,3 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ i
     </div>
   );
 }
-

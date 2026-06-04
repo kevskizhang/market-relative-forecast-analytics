@@ -25,6 +25,7 @@ from .schemas import (
     ExecutionCreate,
     ForecastCreate,
     MarketCreate,
+    MarketUpdate,
     OutcomeCreate,
     PositionCreate,
     PostmortemCreate,
@@ -49,6 +50,17 @@ def require_position(db: Session, position_id: uuid.UUID) -> Position:
 def create_market(db: Session, data: MarketCreate) -> Market:
     market = Market(**data.model_dump(), platform="kalshi", status="open")
     db.add(market)
+    db.commit()
+    db.refresh(market)
+    return market
+
+
+def update_market(db: Session, market_id: uuid.UUID, data: MarketUpdate) -> Market:
+    market = require_market(db, market_id)
+    updates = data.model_dump(exclude_unset=True)
+    for key, value in updates.items():
+        setattr(market, key, value)
+    market.updated_at = now_utc()
     db.commit()
     db.refresh(market)
     return market
@@ -328,4 +340,3 @@ def create_postmortem(db: Session, data: PostmortemCreate) -> Postmortem:
     db.commit()
     db.refresh(postmortem)
     return postmortem
-

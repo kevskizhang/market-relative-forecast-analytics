@@ -32,6 +32,7 @@ from .schemas import (
     ForecastScoreRead,
     MarketCreate,
     MarketRead,
+    MarketUpdate,
     OutcomeCreate,
     OutcomeRead,
     PositionCreate,
@@ -52,6 +53,7 @@ from .services import (
     require_market,
     require_position,
     resolve_market,
+    update_market,
 )
 
 
@@ -90,6 +92,11 @@ def post_market(data: MarketCreate, db: Session = Depends(get_db)) -> Market:
 @app.get("/markets/{market_id}", response_model=MarketRead)
 def get_market(market_id: uuid.UUID, db: Session = Depends(get_db)) -> Market:
     return require_market(db, market_id)
+
+
+@app.patch("/markets/{market_id}", response_model=MarketRead)
+def patch_market(market_id: uuid.UUID, data: MarketUpdate, db: Session = Depends(get_db)) -> Market:
+    return update_market(db, market_id, data)
 
 
 @app.get("/markets/{market_id}/snapshots", response_model=list[SnapshotRead])
@@ -253,4 +260,3 @@ def export_csv(name: str, db: Session = Depends(get_db)) -> Response:
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{name}.csv"'},
     )
-
