@@ -1,6 +1,6 @@
 "use client";
 
-import { API_URL, Forecast, KalshiMarket } from "@/lib/api";
+import { API_URL, Forecast, KalshiMarket, Position } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
@@ -18,14 +18,26 @@ async function post(path: string, payload: unknown) {
   return response.json();
 }
 
+async function patch(path: string, payload: unknown) {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
 export function MarketActions({
   marketId,
   kalshiTicker,
   forecasts,
+  positions,
 }: {
   marketId: string;
   kalshiTicker?: string | null;
   forecasts: Forecast[];
+  positions: Position[];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +45,7 @@ export function MarketActions({
   const [yesBidPct, setYesBidPct] = useState("");
   const [yesAskPct, setYesAskPct] = useState("");
   const [lastTradePct, setLastTradePct] = useState("");
+  const positionsMissingForecast = positions.filter((position) => !position.linked_forecast_id);
 
   function bpsToPctInput(value?: number | null): string {
     if (value === null || value === undefined) return "";
@@ -61,7 +74,7 @@ export function MarketActions({
         yes_ask_bps: form.get("yes_ask_pct") ? pctToBps(form.get("yes_ask_pct")) : null,
         last_trade_price_bps: form.get("last_trade_price_pct") ? pctToBps(form.get("last_trade_price_pct")) : null,
       });
-      await post(`/markets/${marketId}/forecasts`, {
+      const forecast = await post(`/markets/${marketId}/forecasts`, {
         market_snapshot_id: snapshot.id,
         market_probability_yes_bps: marketBps,
         forecast_probability_yes_bps: pctToBps(form.get("forecast_probability_yes_pct")),
@@ -72,6 +85,12 @@ export function MarketActions({
         forecast_type: form.get("forecast_type"),
         notes: form.get("notes"),
       });
+      const linkedPositionId = String(form.get("linked_position_id") || "");
+      if (linkedPositionId) {
+        await patch(`/positions/${linkedPositionId}`, {
+          linked_forecast_id: forecast.id,
+        });
+      }
     });
   }
 
@@ -150,6 +169,19 @@ export function MarketActions({
             <label>Research Quality<select name="research_quality" defaultValue="medium"><option value="">-</option><option>low</option><option>medium</option><option>high</option></select></label>
             <label>Forecast Type<select name="forecast_type" defaultValue="initial"><option>initial</option><option>update</option><option>pre_trade</option><option>post_news</option><option>pre_resolution</option></select></label>
           </div>
+          {positionsMissingForecast.length > 0 && (
+            <label>
+              Attach to Position
+              <select name="linked_position_id" defaultValue={positionsMissingForecast[0]?.id ?? ""}>
+                <option value="">Do not attach</option>
+                {positionsMissingForecast.map((position) => (
+                  <option key={position.id} value={position.id}>
+                    {position.side} | {Number(position.quantity).toLocaleString(undefined, { maximumFractionDigits: 6 })} contracts | opened {new Date(position.opened_at).toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label>Thesis<textarea name="thesis" required /></label>
           <label>Invalidation Criteria<textarea name="invalidation_criteria" /></label>
           <label>Notes<textarea name="notes" /></label>

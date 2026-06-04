@@ -150,7 +150,21 @@ def post_kalshi_sync(data: KalshiSyncCreate, db: Session = Depends(get_db)) -> d
 
 
 @app.get("/kalshi/reconciliation", response_model=KalshiReconciliationRead)
-def get_kalshi_reconciliation(db: Session = Depends(get_db)) -> dict[str, int]:
+def get_kalshi_reconciliation(db: Session = Depends(get_db)) -> dict[str, object]:
+    latest_raw_import_at = max(
+        (
+            value
+            for value in [
+                db.scalar(select(func.max(KalshiFill.imported_at))),
+                db.scalar(select(func.max(KalshiOrder.imported_at))),
+                db.scalar(select(func.max(KalshiSettlement.imported_at))),
+                db.scalar(select(func.max(KalshiPositionSnapshot.imported_at))),
+                db.scalar(select(func.max(KalshiBalanceSnapshot.imported_at))),
+            ]
+            if value is not None
+        ),
+        default=None,
+    )
     return {
         "raw_fills": db.scalar(select(func.count(KalshiFill.id))) or 0,
         "unconverted_fills": db.scalar(select(func.count(KalshiFill.id)).where(KalshiFill.imported_execution_id.is_(None))) or 0,
@@ -176,6 +190,8 @@ def get_kalshi_reconciliation(db: Session = Depends(get_db)) -> dict[str, int]:
         "resolved_markets_needing_review": db.scalar(
             select(func.count(Market.id)).where(Market.status == "resolved")
         ) or 0,
+        "latest_raw_import_at": latest_raw_import_at,
+        "latest_balance_snapshot_at": db.scalar(select(func.max(KalshiBalanceSnapshot.imported_at))),
     }
 
 
@@ -361,6 +377,21 @@ def dashboard_summary(db: Session = Depends(get_db)) -> dict[str, object]:
         )
     ) or 0
     latest_bankroll = db.scalar(select(BankrollSnapshot).order_by(BankrollSnapshot.timestamp.desc()).limit(1))
+    latest_kalshi_balance = db.scalar(select(KalshiBalanceSnapshot).order_by(KalshiBalanceSnapshot.imported_at.desc()).limit(1))
+    latest_raw_import_at = max(
+        (
+            value
+            for value in [
+                db.scalar(select(func.max(KalshiFill.imported_at))),
+                db.scalar(select(func.max(KalshiOrder.imported_at))),
+                db.scalar(select(func.max(KalshiSettlement.imported_at))),
+                db.scalar(select(func.max(KalshiPositionSnapshot.imported_at))),
+                db.scalar(select(func.max(KalshiBalanceSnapshot.imported_at))),
+            ]
+            if value is not None
+        ),
+        default=None,
+    )
     avg_brier = db.scalar(select(func.avg(ForecastScore.brier_user_bps_squared)))
     avg_market_brier = db.scalar(select(func.avg(ForecastScore.brier_market_bps_squared)))
     avg_improvement = db.scalar(select(func.avg(ForecastScore.brier_improvement_bps_squared)))
@@ -381,6 +412,20 @@ def dashboard_summary(db: Session = Depends(get_db)) -> dict[str, object]:
         "exposure": {
             "open_exposure_minor_units": open_exposure,
             "latest_total_equity_minor_units": latest_bankroll.total_equity_minor_units if latest_bankroll else None,
+            "latest_kalshi_balance_minor_units": latest_kalshi_balance.balance_minor_units if latest_kalshi_balance else None,
+            "latest_kalshi_portfolio_value_minor_units": latest_kalshi_balance.portfolio_value_minor_units if latest_kalshi_balance else None,
+        },
+        "data_health": {
+            "latest_raw_import_at": latest_raw_import_at,
+            "unconverted_fills": db.scalar(select(func.count(KalshiFill.id)).where(KalshiFill.imported_execution_id.is_(None))) or 0,
+            "unconverted_settlements": db.scalar(select(func.count(KalshiSettlement.id)).where(KalshiSettlement.imported_outcome_id.is_(None))) or 0,
+            "positions_missing_forecast": db.scalar(
+                select(func.count(Position.id)).where(
+                    Position.linked_forecast_id.is_(None),
+                    Position.position_notes.ilike("%Imported from Kalshi%"),
+                )
+            ) or 0,
+            "resolved_markets_needing_review": db.scalar(select(func.count(Market.id)).where(Market.status == "resolved")) or 0,
         },
     }
 

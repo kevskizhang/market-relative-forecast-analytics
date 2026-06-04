@@ -21,22 +21,24 @@ export default async function BankrollPage() {
       </div>
       <BankrollForm />
       <section className="panel">
-        <table>
-          <thead><tr><th>Time</th><th>Cash</th><th>Open Value</th><th>Total Equity</th><th>Notes</th></tr></thead>
-          <tbody>
-            {snapshots.map((snapshot) => (
-              <tr key={snapshot.id}>
-                <td>{formatDate(snapshot.timestamp)}</td>
-                <td>{formatMoney(snapshot.cash_balance_minor_units)}</td>
-                <td>{formatMoney(snapshot.open_position_value_minor_units)}</td>
-                <td>{formatMoney(snapshot.total_equity_minor_units)}</td>
-                <td>{snapshot.notes}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Time</th><th className="numeric">Cash</th><th className="numeric">Open Value</th><th className="numeric">Total Equity</th><th>Notes</th></tr></thead>
+            <tbody>
+              {snapshots.map((snapshot) => (
+                <tr key={snapshot.id}>
+                  <td>{formatDate(snapshot.timestamp)}</td>
+                  <td className="numeric">{formatMoney(snapshot.cash_balance_minor_units)}</td>
+                  <td className="numeric">{formatMoney(snapshot.open_position_value_minor_units)}</td>
+                  <td className="numeric">{formatMoney(snapshot.total_equity_minor_units)}</td>
+                  <td>{snapshot.notes}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {snapshots.length === 0 && <div className="empty">No manual bankroll snapshots yet.</div>}
       </section>
     </div>
   );
 }
-

@@ -149,6 +149,8 @@ class KalshiReconciliationRead(BaseModel):
     imported_positions_missing_forecast: int
     imported_open_positions: int
     resolved_markets_needing_review: int
+    latest_raw_import_at: datetime | None = None
+    latest_balance_snapshot_at: datetime | None = None
 
 
 class KalshiRebuildResult(BaseModel):

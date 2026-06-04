@@ -1,5 +1,6 @@
 import { apiGet, Market } from "@/lib/api";
 import { KalshiImportForm } from "./KalshiImportForm";
+import { formatShortDate, statusClass } from "@/lib/format";
 
 export default async function MarketsPage() {
   const markets = await apiGet<Market[]>("/markets");
@@ -17,26 +18,29 @@ export default async function MarketsPage() {
       <KalshiImportForm />
 
       <section className="panel">
-        <table>
-          <thead>
-            <tr>
-              <th>Market</th>
-              <th>Category</th>
-              <th>Status</th>
-              <th>Expected Resolution</th>
-            </tr>
-          </thead>
-          <tbody>
-            {markets.map((market) => (
-              <tr key={market.id}>
-                <td><a href={`/markets/${market.id}`}>{market.title}</a></td>
-                <td>{market.category}</td>
-                <td><span className="pill">{market.status}</span></td>
-                <td>{market.expected_resolution_date}</td>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Market</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Expected Resolution</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {markets.map((market) => (
+                <tr key={market.id}>
+                  <td><a href={`/markets/${market.id}`}>{market.title}</a></td>
+                  <td>{market.category}</td>
+                  <td><span className={statusClass(market.status)}>{market.status}</span></td>
+                  <td>{formatShortDate(market.expected_resolution_date)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {markets.length === 0 && <div className="empty">No markets imported yet.</div>}
       </section>
     </div>
   );

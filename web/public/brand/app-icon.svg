@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Market-Relative Forecast Analytics">
+  <rect width="64" height="64" rx="14" fill="#1f6f5b"/>
+  <path d="M15 43h34" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+  <path d="M18 40l9-13 9 7 10-16" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="27" cy="27" r="4" fill="#f8efd9"/>
+  <circle cx="36" cy="34" r="4" fill="#f8efd9"/>
+  <circle cx="46" cy="18" r="4" fill="#f8efd9"/>
+</svg>

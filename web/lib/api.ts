@@ -21,6 +21,7 @@ export type Market = {
 export type Forecast = {
   id: string;
   market_id: string;
+  market_snapshot_id?: string | null;
   timestamp: string;
   forecast_probability_yes_bps: number;
   market_probability_yes_bps: number;

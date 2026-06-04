@@ -1,6 +1,7 @@
 import { KalshiFillsImportForm } from "./KalshiFillsImportForm";
 import { apiGet } from "@/lib/api";
 import { RebuildKalshiButton } from "./RebuildKalshiButton";
+import { formatDate } from "@/lib/format";
 
 type Reconciliation = {
   raw_fills: number;
@@ -15,35 +16,46 @@ type Reconciliation = {
   imported_positions_missing_forecast: number;
   imported_open_positions: number;
   resolved_markets_needing_review: number;
+  latest_raw_import_at?: string | null;
+  latest_balance_snapshot_at?: string | null;
 };
 
 export default async function KalshiSettingsPage() {
   const reconciliation = await apiGet<Reconciliation>("/kalshi/reconciliation").catch(() => null);
   return (
     <div className="stack">
-      <div>
-        <h1>Kalshi</h1>
-        <div className="muted">Read-only authenticated fill import.</div>
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">Settings</div>
+          <h1>Kalshi Sync</h1>
+          <div className="muted">Read-only account sync for fills, orders, settlements, balances, and position snapshots.</div>
+        </div>
+        {reconciliation && <span className="pill">Last sync {formatDate(reconciliation.latest_raw_import_at)}</span>}
       </div>
       <KalshiFillsImportForm />
       <section className="panel">
-        <h2>Repair Imported State</h2>
+        <h2>Rebuild Derived Data</h2>
         <p className="muted">Use this after sync logic changes or if imported positions look stale. Raw Kalshi records remain the source of truth.</p>
         <RebuildKalshiButton />
       </section>
       {reconciliation && (
         <section className="panel">
-          <h2>Reconciliation</h2>
-          <div className="grid">
-            <div><div className="metric">{reconciliation.raw_fills}</div><div className="muted">raw fills</div></div>
-            <div><div className="metric">{reconciliation.unconverted_fills}</div><div className="muted">unconverted fills</div></div>
-            <div><div className="metric">{reconciliation.raw_orders}</div><div className="muted">raw orders</div></div>
-            <div><div className="metric">{reconciliation.raw_settlements}</div><div className="muted">raw settlements</div></div>
-            <div><div className="metric">{reconciliation.unconverted_settlements}</div><div className="muted">unconverted settlements</div></div>
-            <div><div className="metric">{reconciliation.raw_balance_snapshots}</div><div className="muted">balance snapshots</div></div>
-            <div><div className="metric">{reconciliation.raw_deposits}</div><div className="muted">deposits</div></div>
-            <div><div className="metric">{reconciliation.raw_withdrawals}</div><div className="muted">withdrawals</div></div>
-            <div><div className="metric">{reconciliation.imported_positions_missing_forecast}</div><div className="muted">positions missing forecasts</div></div>
+          <div className="section-head">
+            <div>
+              <h2>Reconciliation</h2>
+              <div className="muted">Raw records stored locally and conversion items that need attention.</div>
+            </div>
+            <span className="pill">Balance {formatDate(reconciliation.latest_balance_snapshot_at)}</span>
+          </div>
+          <div className="metric-grid">
+            <div className="metric-card"><div className="metric">{reconciliation.raw_fills}</div><div className="muted">raw fills</div></div>
+            <div className="metric-card"><div className="metric">{reconciliation.unconverted_fills}</div><div className="muted">unconverted fills</div></div>
+            <div className="metric-card"><div className="metric">{reconciliation.raw_orders}</div><div className="muted">raw orders</div></div>
+            <div className="metric-card"><div className="metric">{reconciliation.raw_settlements}</div><div className="muted">raw settlements</div></div>
+            <div className="metric-card"><div className="metric">{reconciliation.unconverted_settlements}</div><div className="muted">unconverted settlements</div></div>
+            <div className="metric-card"><div className="metric">{reconciliation.raw_position_snapshots}</div><div className="muted">position snapshots</div></div>
+            <div className="metric-card"><div className="metric">{reconciliation.raw_balance_snapshots}</div><div className="muted">balance snapshots</div></div>
+            <div className="metric-card"><div className="metric">{reconciliation.imported_positions_missing_forecast}</div><div className="muted">missing forecasts</div></div>
           </div>
         </section>
       )}

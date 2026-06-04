@@ -68,12 +68,12 @@ export function KalshiFillsImportForm() {
         </label>
         {error && <div className="error">{error}</div>}
         {result && (
-          <div className="grid">
-            <div className="panel"><h3>Fills</h3><p>Received {result.fills_received}</p><p>Stored {result.fills_stored}</p><p>Converted {result.fills_converted}</p><p>Skipped {result.fills_skipped}</p></div>
-            <div className="panel"><h3>Orders</h3><p>Received {result.orders_received}</p><p>Stored {result.orders_stored}</p><p>Skipped {result.orders_skipped}</p></div>
-            <div className="panel"><h3>Settlements</h3><p>Received {result.settlements_received}</p><p>Stored {result.settlements_stored}</p><p>Converted {result.settlements_converted}</p><p>Skipped {result.settlements_skipped}</p></div>
-            <div className="panel"><h3>Positions</h3><p>Received {result.position_snapshots_received}</p><p>Stored {result.position_snapshots_stored}</p><p>Skipped {result.position_snapshots_skipped}</p></div>
-            <div className="panel"><h3>Account</h3><p>Balance snapshots {result.balance_snapshots_stored}</p><p>Deposits stored {result.deposits_stored}</p><p>Withdrawals stored {result.withdrawals_stored}</p></div>
+          <div className="metric-grid">
+            <div className="metric-card"><h3>Fills</h3><p>Received {result.fills_received}</p><p>Stored {result.fills_stored}</p><p>Converted {result.fills_converted}</p><p>Skipped {result.fills_skipped}</p></div>
+            <div className="metric-card"><h3>Orders</h3><p>Received {result.orders_received}</p><p>Stored {result.orders_stored}</p><p>Skipped {result.orders_skipped}</p></div>
+            <div className="metric-card"><h3>Settlements</h3><p>Received {result.settlements_received}</p><p>Stored {result.settlements_stored}</p><p>Converted {result.settlements_converted}</p><p>Skipped {result.settlements_skipped}</p></div>
+            <div className="metric-card"><h3>Positions</h3><p>Received {result.position_snapshots_received}</p><p>Stored {result.position_snapshots_stored}</p><p>Skipped {result.position_snapshots_skipped}</p></div>
+            <div className="metric-card"><h3>Account</h3><p>Balance snapshots {result.balance_snapshots_stored}</p><p>Deposits stored {result.deposits_stored}</p><p>Withdrawals stored {result.withdrawals_stored}</p></div>
           </div>
         )}
         <button disabled={loading}>{loading ? "Syncing..." : "Sync Kalshi"}</button>
