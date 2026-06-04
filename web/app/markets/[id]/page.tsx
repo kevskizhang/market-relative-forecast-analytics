@@ -1,38 +1,8 @@
 import { apiGet, Forecast, Market, Position, Snapshot } from "@/lib/api";
+import { forecastEdgeStats } from "@/lib/forecastEdges";
 import { formatBps, formatDate, formatMoney, formatQuantity, pnlClass, signedBpsClass, statusClass } from "@/lib/format";
 import { MarketActions } from "./MarketActions";
 import { UndoResolutionButton } from "./UndoResolutionButton";
-
-type EdgeStats = {
-  yesBid: number | null;
-  yesAsk: number | null;
-  yesMid: number | null;
-  spread: number | null;
-  edgeVsMid: number | null;
-  edgeBuyYes: number | null;
-  edgeBuyNo: number | null;
-  edgeSellYes: number | null;
-  edgeSellNo: number | null;
-  bestExecutableEdge: number | null;
-  spreadPenalty: number | null;
-};
-
-function forecastEdgeStats(forecast: Forecast, snapshotsById: Map<string, Snapshot>): EdgeStats {
-  const snapshot = forecast.market_snapshot_id ? snapshotsById.get(forecast.market_snapshot_id) : undefined;
-  const yesBid = snapshot?.yes_bid_bps ?? null;
-  const yesAsk = snapshot?.yes_ask_bps ?? null;
-  const yesMid = yesBid !== null && yesAsk !== null ? Math.round((yesBid + yesAsk) / 2) : forecast.market_probability_yes_bps;
-  const spread = yesBid !== null && yesAsk !== null ? yesAsk - yesBid : null;
-  const edgeVsMid = forecast.forecast_probability_yes_bps - yesMid;
-  const edgeBuyYes = yesAsk !== null ? forecast.forecast_probability_yes_bps - yesAsk : null;
-  const edgeBuyNo = yesBid !== null ? (10000 - forecast.forecast_probability_yes_bps) - (10000 - yesBid) : null;
-  const edgeSellYes = yesBid !== null ? yesBid - forecast.forecast_probability_yes_bps : null;
-  const edgeSellNo = yesAsk !== null ? forecast.forecast_probability_yes_bps - yesAsk : null;
-  const executableEdges = [edgeBuyYes, edgeBuyNo, edgeSellYes, edgeSellNo].filter((value): value is number => value !== null);
-  const bestExecutableEdge = executableEdges.length > 0 ? Math.max(...executableEdges) : null;
-  const spreadPenalty = bestExecutableEdge !== null ? Math.abs(edgeVsMid) - bestExecutableEdge : null;
-  return { yesBid, yesAsk, yesMid, spread, edgeVsMid, edgeBuyYes, edgeBuyNo, edgeSellYes, edgeSellNo, bestExecutableEdge, spreadPenalty };
-}
 
 export default async function MarketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -78,7 +48,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ i
             <thead><tr><th className="nowrap">Time</th><th className="numeric">Bid</th><th className="numeric">Ask</th><th className="numeric">Mid</th><th className="numeric">Spr</th><th className="numeric">Mine</th><th className="numeric">vs Mid</th><th className="numeric">Buy Y</th><th className="numeric">Buy N</th><th className="numeric">Sell Y</th><th className="numeric">Sell N</th><th className="numeric">Best</th><th className="numeric">Penalty</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {forecasts.map((forecast) => {
-                  const stats = forecastEdgeStats(forecast, snapshotsById);
+                  const stats = forecastEdgeStats(forecast, forecast.market_snapshot_id ? snapshotsById.get(forecast.market_snapshot_id) : undefined);
                   return (
                     <tr key={forecast.id}>
                       <td>{formatDate(forecast.timestamp)}</td>
@@ -95,7 +65,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ i
                       <td className={signedBpsClass(stats.bestExecutableEdge)}>{formatBps(stats.bestExecutableEdge)}</td>
                       <td className={signedBpsClass(stats.spreadPenalty !== null ? -stats.spreadPenalty : null)}>{formatBps(stats.spreadPenalty)}</td>
                       <td><span className={statusClass(forecast.status)}>{forecast.status}</span></td>
-                      <td><a href={`/forecasts/${forecast.id}/edit`}>Edit</a></td>
+                      <td className="nowrap"><a href={`/forecasts/${forecast.id}`}>View</a> | <a href={`/forecasts/${forecast.id}/edit`}>Edit</a></td>
                     </tr>
                   );
                 })}

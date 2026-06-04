@@ -111,6 +111,17 @@ export type Postmortem = {
   updated_at: string;
 };
 
+export type ForecastScore = {
+  id?: string;
+  forecast_id: string;
+  market_id?: string;
+  outcome_value_bps?: number;
+  brier_user_bps_squared: number;
+  brier_market_bps_squared?: number;
+  brier_improvement_bps_squared: number;
+  scored_at?: string;
+};
+
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, { cache: "no-store" });
   if (!response.ok) {
